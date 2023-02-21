@@ -23,6 +23,7 @@ namespace Movies.Api.Mapping
             {
                 Id = movie.Id,
                 Title = movie.Title,
+                Slug = movie.Slug,
                 YearOfRelease = movie.YearOfRelease,
                 Genres = movie.Genres
             };
@@ -33,6 +34,17 @@ namespace Movies.Api.Mapping
             return new MoviesResponse
             {
                 Items = movies.Select(MapToResponse)
+            };
+        }
+
+        public static Movie MapToMovie(this UpdateMovieRequest request, Guid id)
+        {
+            return new Movie
+            { 
+                Id = id,
+                Title = request.Title,
+                YearOfRelease = request.YearOfRelease,
+                Genres = request.Genres.ToList()
             };
         }
     }
