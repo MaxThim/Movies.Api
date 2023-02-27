@@ -76,7 +76,7 @@ namespace Movies.Application.Repositories
         {
             using var connection = await _dbconnectionFactory.CreateConnectionAsync();
 
-            var orderClause = string.Empty;
+            var orderClause = "order by m.id";
             if (options.SortField != null)
             {
                 orderClause = $"""
@@ -96,14 +96,14 @@ namespace Movies.Application.Repositories
                 AND (@YearOfRelease is null or m.yearofrelease = @YearOfRelease)
                 GROUP BY m.id, m.title, m.slug, m.yearofrelease, myr.rating {orderClause} 
                 OFFSET @PageOffSet ROWS 
-                FETCH NEXT @Page ROWS ONLY", 
+                FETCH NEXT @PageSize ROWS ONLY", 
                 new 
                 { 
                     userId = options.UserId,
                     Title = options.Title,
                     YearOfRelease = options.YearOfRelease,
                     PageOffSet = (options.Page - 1) * options.PageSize,
-                    Page = options.Page,
+                    PageSize = options.PageSize,
                 }, cancellationToken: token));
 
             return result.Select(x => new Movie
