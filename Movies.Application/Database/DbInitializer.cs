@@ -42,6 +42,16 @@ namespace Movies.Application.Database
                 name NVARCHAR(MAX) NOT NULL
             );
             """);
+
+            await connection.ExecuteAsync("""
+                IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[ratings]') AND type in (N'U'))
+                CREATE TABLE [dbo].[ratings] (
+                userid UNIQUEIDENTIFIER,
+                movieid UNIQUEIDENTIFIER REFERENCES movies (Id),
+                rating INT NOT NULL,
+                PRIMARY KEY (userid, movieid)
+                );
+                """);
         }
     }
 }
