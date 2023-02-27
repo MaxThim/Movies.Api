@@ -72,19 +72,39 @@ namespace Movies.Application.Repositories
 
         }
 
-        public async Task<IEnumerable<Movie>> GetAllAsync(Guid? userId = default, CancellationToken token = default)
+        public async Task<IEnumerable<Movie>> GetAllAsync(GetAllMoviesOptions options, CancellationToken token = default)
         {
             using var connection = await _dbconnectionFactory.CreateConnectionAsync();
 
+            var orderClause = string.Empty;
+            if (options.SortField != null)
+            {
+                orderClause = $"""
+                    , m.{options.SortField} 
+                    order by m.{options.SortField} {(options.SortOrder == SortOrder.Ascending ? "asc" : "desc")}
+                    """;
+            }
+
             var result = await connection.QueryAsync(new CommandDefinition(
-                @"SELECT m.*, STRING_AGG(g.name, ',') as genres,
+                @$"SELECT m.*, STRING_AGG(g.name, ',') as genres,
                 AVG(CAST(r.rating AS float)) as rating, myr.rating as userrating
                 FROM movies m
                 LEFT JOIN genres g ON m.id = g.movieId
                 LEFT JOIN ratings r on m.id = r.movieid
                 LEFT JOIN ratings myr on m.id = myr.movieid AND myr.userid = @userId
-                GROUP BY m.id, m.title, m.slug, m.yearofrelease, myr.rating", 
-                new { userId }, cancellationToken: token));
+                WHERE (@Title is null or m.title like '%' + @Title + '%')
+                AND (@YearOfRelease is null or m.yearofrelease = @YearOfRelease)
+                GROUP BY m.id, m.title, m.slug, m.yearofrelease, myr.rating {orderClause} 
+                OFFSET @PageOffSet ROWS 
+                FETCH NEXT @Page ROWS ONLY", 
+                new 
+                { 
+                    userId = options.UserId,
+                    Title = options.Title,
+                    YearOfRelease = options.YearOfRelease,
+                    PageOffSet = (options.Page - 1) * options.PageSize,
+                    Page = options.Page,
+                }, cancellationToken: token));
 
             return result.Select(x => new Movie
             {
@@ -159,6 +179,17 @@ namespace Movies.Application.Repositories
             }
 
             return movie;
+        }
+
+        public async Task<int> GetCountAsync(string? title, int? yearOfRelease, CancellationToken token = default)
+        {
+            using var connection = await _dbconnectionFactory.CreateConnectionAsync();
+
+            return await connection.QuerySingleAsync<int>(new CommandDefinition("""
+                SELECT COUNT(id) FROM movies
+                WHERE (@Title is null or title like '%' + @Title + '%')
+                AND (@YearOfRelease is null or yearofrelease = @YearOfRelease)
+                """, new { title, yearOfRelease }, cancellationToken: token));
         }
 
         public async Task<bool> UpdateAsync(Movie movie, CancellationToken token = default)
